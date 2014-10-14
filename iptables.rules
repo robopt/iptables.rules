@@ -1,0 +1,83 @@
+#!/bin/bash
+# chkconfig: 345 99 01
+# description: Applies iptable rules on startup
+
+### BEGIN INIT INFO
+# Provides: iptables.rules
+# Required-Start: iptables network
+# Defalt-Start: 3 4 5
+# Default-Stop: 0 1 6
+# Description: Iptables rules
+### END INIT INFO
+
+# Ports
+INTCP=(22922)               #Input TCP
+INUDP=(53)                  #Input UDP
+OUTTCP=(22,22922,80,443)    #Output TCP
+OUTUDP=(53)                 #Output UDP
+
+# Hosts
+hostname=mead.d2g.com
+DAD=`dig +short $hostname`
+hostname=flandre.hacked.jp
+FLANDRE=`dig +short $hostname`
+HOSTS=( "129.21.0.0/16" "$DAD" "$HOME" "$FLANDRE" )
+
+# Flush rules
+echo "Flushing rules"
+iptables -F
+iptables -F -t nat
+
+# Default policies -> DROP
+echo "Default policies -> drop"
+for p in INPUT FORWARD OUTPUT
+do
+    iptables -P $p DROP
+done
+
+# Accept all loopback
+echo "Loopback rules -> accept"
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+# Allow ping out, block all other icmp
+echo "Icmp rules -> accept outbound, deny all else"
+iptables -A OUTPUT -p icmp --icmp-type 8 -j ACCEPT
+iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
+iptables -A OUTPUT -p icmp -j DROP
+iptables -A INPUT -p icmp -j DROP
+
+# Accept tcp inputs on 22922 (ssh)
+echo "Input tcp rules -> accept ssh"
+for h in $HOSTS
+do
+    for p in $INTCP
+    do
+        iptables -A INPUT -s $h -p tcp --dport $p -m state --state NEW,ESTABLISHED -j ACCEPT
+    done
+done
+
+# Accept udp inputs on 53 (dns)
+echo "Input udp rules -> accept dns"
+for h in $HOSTS
+do
+    for p in $INUDP
+    do
+        iptables -A INPUT -s $h -p udp --dport $p -m state --state NEW,ESTABLISHED -j ACCEPT
+    done
+done
+
+# Accept tcp output on 22 (ssh), 22922 (ssh), 80 (http), 443 (https)
+echo "Output tcp rules -> accept ssh, http, https"
+iptables -A OUTPUT -p tcp -m multiport --dports $OUTTCP -j ACCEPT
+
+# Accept udp output on 53 (dns)
+echo "Output udp rules -> accept dns"
+iptables -A OUTPUT -p udp -m multiport --dports $OUTUDP -j ACCEPT
+
+# Drop any outside attempts to connect, accept replies
+echo "Default -> Accept established/related, drop new/invalid"
+iptables -A INPUT -m state --state NEW,INVALID -j DROP
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+iptables -nL
