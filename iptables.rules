@@ -31,10 +31,6 @@ OUTUDP=(53)                 #Output UDP
 
 #########
 ### Hosts
-hostname=mead.d2g.com
-DAD=`dig +short $hostname`
-hostname=flandre.hacked.jp
-FLANDRE=`dig +short $hostname`
 HOSTS=( 129.21.0.0/16 74.70.0.0/16 162.244.0.0/16 162.248.0.0/16 168.235.0.0/16 )
 
 
