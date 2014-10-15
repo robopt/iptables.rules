@@ -10,44 +10,64 @@
 # Description: Iptables rules
 ### END INIT INFO
 
-# Ports
-INTCP=(22922)               #Input TCP
-INUDP=(53)                  #Input UDP
-OUTTCP=(22,22922,80,443)    #Output TCP
+#########
+### Ports
+# Input TCP
+# 22922 (ssh)
+INTCP=(22922)
+
+# Input UDP
+# 53 (dns)
+INUDP=(53)
+
+# Output TCP
+# 22 (ssh), 22922 (ssh), 80 (http)
+# 443 (https), 465 (smtps), 993 (imaps) 
+OUTTCP=(22,22922,80,443,465,993)    #Output TCP
+
+# Output UDP
+# 53 (dns)
 OUTUDP=(53)                 #Output UDP
 
-# Hosts
+#########
+### Hosts
 hostname=mead.d2g.com
 DAD=`dig +short $hostname`
 hostname=flandre.hacked.jp
 FLANDRE=`dig +short $hostname`
-HOSTS=( "129.21.0.0/16" "$DAD" "$HOME" "$FLANDRE" )
+HOSTS=( 129.21.0.0/16 74.70.0.0/16 162.244.0.0/16 162.248.0.0/16 168.235.0.0/16 )
 
-# Flush rules
+
+###############
+### Flush rules
 echo "Flushing rules"
 iptables -F
 iptables -F -t nat
 
-# Default policies -> DROP
+############################
+### Default policies -> DROP
 echo "Default policies -> drop"
 for p in INPUT FORWARD OUTPUT
 do
     iptables -P $p DROP
 done
 
-# Accept all loopback
+#######################
+### Accept all loopback
 echo "Loopback rules -> accept"
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
-# Allow ping out, block all other icmp
+########################################
+### Allow ping out, block all other icmp
 echo "Icmp rules -> accept outbound, deny all else"
 iptables -A OUTPUT -p icmp --icmp-type 8 -j ACCEPT
 iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
 iptables -A OUTPUT -p icmp -j DROP
 iptables -A INPUT -p icmp -j DROP
 
-# Accept tcp inputs on 22922 (ssh)
+#####################
+### Accept tcp inputs
 echo "Input tcp rules -> accept ssh"
 for h in $HOSTS
 do
@@ -57,7 +77,8 @@ do
     done
 done
 
-# Accept udp inputs on 53 (dns)
+#####################
+### Accept udp inputs
 echo "Input udp rules -> accept dns"
 for h in $HOSTS
 do
@@ -67,17 +88,22 @@ do
     done
 done
 
-# Accept tcp output on 22 (ssh), 22922 (ssh), 80 (http), 443 (https)
+#####################
+### Accept tcp output
 echo "Output tcp rules -> accept ssh, http, https"
 iptables -A OUTPUT -p tcp -m multiport --dports $OUTTCP -j ACCEPT
 
-# Accept udp output on 53 (dns)
+#####################
+### Accept udp output
 echo "Output udp rules -> accept dns"
 iptables -A OUTPUT -p udp -m multiport --dports $OUTUDP -j ACCEPT
 
-# Drop any outside attempts to connect, accept replies
+########################################################
+### Drop any outside attempts to connect, accept replies
 echo "Default -> Accept established/related, drop new/invalid"
 iptables -A INPUT -m state --state NEW,INVALID -j DROP
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+###################
+### Print new rules
 iptables -nL
