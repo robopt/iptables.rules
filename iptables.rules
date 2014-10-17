@@ -23,7 +23,7 @@ INUDP=(53)
 # Output TCP
 # 22 (ssh), 22922 (ssh), 80 (http)
 # 443 (https), 465 (smtps), 993 (imaps) 
-OUTTCP=(22,22922,80,443,465,993)    #Output TCP
+OUTTCP=(22 22922 80 443 465 993 8443)    #Output TCP
 
 # Output UDP
 # 53 (dns)
@@ -51,16 +51,16 @@ done
 #######################
 ### Accept all loopback
 echo "Loopback rules -> accept"
-iptables -A INPUT -i lo -j ACCEPT
-iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A INPUT -i lo -m comment --comment "Loopback" -j ACCEPT
+iptables -A OUTPUT -o lo -m comment --comment "Loopback" -j ACCEPT
 
 ########################################
 ### Allow ping out, block all other icmp
 echo "Icmp rules -> accept outbound, deny all else"
-iptables -A OUTPUT -p icmp --icmp-type 8 -j ACCEPT
-iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
-iptables -A OUTPUT -p icmp -j DROP
-iptables -A INPUT -p icmp -j DROP
+iptables -A OUTPUT -p icmp --icmp-type 8 -m comment --comment "Allow ping requests output" -j ACCEPT
+iptables -A INPUT -p icmp --icmp-type 0 -m comment --comment "Allow ping reply input" -j ACCEPT
+iptables -A OUTPUT -p icmp -m comment --comment "Drop other ICMP output" -j DROP
+iptables -A INPUT -p icmp -m comment --comment "Drop other ICMP input" -j DROP
 
 #####################
 ### Accept tcp inputs
@@ -87,18 +87,23 @@ done
 #####################
 ### Accept tcp output
 echo "Output tcp rules -> accept ssh, http, https"
-iptables -A OUTPUT -p tcp -m multiport --dports $OUTTCP -j ACCEPT
+for p in $OUTTCP
+do
+    iptables -A OUTPUT -p tcp --dport $p -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+done
 
 #####################
 ### Accept udp output
 echo "Output udp rules -> accept dns"
-iptables -A OUTPUT -p udp -m multiport --dports $OUTUDP -j ACCEPT
+for p in $OUTUDP
+do
+    iptables -A OUTPUT -p udp --dport $p -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+done
 
 ########################################################
 ### Drop any outside attempts to connect, accept replies
-echo "Default -> Accept established/related, drop new/invalid"
-iptables -A INPUT -m state --state NEW,INVALID -j DROP
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+#echo "Default -> Accept established/related, drop new/invalid"
+#iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 ###################
 ### Print new rules
