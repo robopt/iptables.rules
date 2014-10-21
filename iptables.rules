@@ -14,25 +14,22 @@
 ### Ports
 # Input TCP
 # 22922 (ssh)
-INTCP=(22922)
+INTCP=( 22922 )
 
 # Input UDP
-# 53 (dns)
-INUDP=(53)
+INUDP=(  )
 
 # Output TCP
 # 22 (ssh), 22922 (ssh), 80 (http)
 # 443 (https), 465 (smtps), 993 (imaps) 
-OUTTCP=(22 22922 80 443 465 993 8443)    #Output TCP
+OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 )    #Output TCP
 
 # Output UDP
-# 53 (dns)
-OUTUDP=(53)                 #Output UDP
+OUTUDP=( 53 )                 #Output UDP
 
 #########
 ### Hosts
 HOSTS=( 129.21.0.0/16 74.70.0.0/16 162.244.0.0/16 162.248.0.0/16 168.235.0.0/16 )
-
 
 ###############
 ### Flush rules
@@ -62,47 +59,51 @@ iptables -A INPUT -p icmp --icmp-type 0 -m comment --comment "Allow ping reply i
 iptables -A OUTPUT -p icmp -m comment --comment "Drop other ICMP output" -j DROP
 iptables -A INPUT -p icmp -m comment --comment "Drop other ICMP input" -j DROP
 
+####################
+### Accept DNS
+iptables -A INPUT -p udp --sport 53 -j ACCEPT
+iptables -A INPUT -p tcp --sport 53 -j ACCEPT
+
 #####################
 ### Accept tcp inputs
-echo "Input tcp rules -> accept ssh"
-for h in $HOSTS
+for h in ${HOSTS[@]};
 do
-    for p in $INTCP
+    for p in ${INTCP[@]}
     do
-        iptables -A INPUT -s $h -p tcp --dport $p -m state --state NEW,ESTABLISHED -j ACCEPT
+        echo "Input tcp rules -> accept $p from $h"
+        iptables -A INPUT -s $h -p tcp --sport $p -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
     done
 done
 
 #####################
 ### Accept udp inputs
-echo "Input udp rules -> accept dns"
-for h in $HOSTS
+for h in ${HOSTS[@]};
 do
-    for p in $INUDP
+    for p in ${INUDP[@]}
     do
-        iptables -A INPUT -s $h -p udp --dport $p -m state --state NEW,ESTABLISHED -j ACCEPT
+        echo "Input udp rules -> accept $p from $h"
+        iptables -A INPUT -s $h -p udp --sport $p -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
     done
 done
 
 #####################
 ### Accept tcp output
-echo "Output tcp rules -> accept ssh, http, https"
-for p in $OUTTCP
+for p in ${OUTTCP[@]};
 do
-    iptables -A OUTPUT -p tcp --dport $p -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+    echo "Output tcp rule -> accept $p"
+    iptables -A OUTPUT -p tcp --dport $p -j ACCEPT
+    iptables -A INPUT -p tcp --sport $p -m state --state RELATED,ESTABLISHED -j ACCEPT
 done
 
 #####################
 ### Accept udp output
-echo "Output udp rules -> accept dns"
-for p in $OUTUDP
+for p in ${OUTUDP[@]};
 do
-    iptables -A OUTPUT -p udp --dport $p -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+    echo "Output udp rule -> accept $p"
+    iptables -A OUTPUT -p udp --dport $p -j ACCEPT
+    iptables -A INPUT -p udp --sport $p -m state --state RELATED,ESTABLISHED -j ACCEPT
 done
 
-########################################################
-### Drop any outside attempts to connect, accept replies
-#echo "Default -> Accept established/related, drop new/invalid"
 #iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 ###################
