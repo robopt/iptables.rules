@@ -22,7 +22,7 @@ INUDP=(  )
 # Output TCP
 # 22 (ssh), 22922 (ssh), 80 (http)
 # 443 (https), 465 (smtps), 993 (imaps) 
-OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 )    #Output TCP
+OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 6797 )    #Output TCP
 
 # Output UDP
 OUTUDP=( 53 )                 #Output UDP
