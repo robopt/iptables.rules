@@ -15,25 +15,29 @@
 HOSTS=( 129.21.0.0/16 74.70.0.0/16 162.244.0.0/16 162.248.0.0/16 168.235.0.0/16 )
 
 #########
-### Ports
+### Rate Limit Input
 
+#########
+### Ports
 # Input TCP - FILTERED BY HOSTS
 # 22922 (ssh)
-INTCP=( 22922 )
+INTCPFILTERED=( 22922 )
 
 # Input TCP - NOT FILTERED BY HOSTS
-INTCPOPEN=(  )
+INTCP=( 56298 )
 
-# Input UDP
-INUDP=(  )
+# Input UDP - FILTERED BY HOSTS
+INUDPFILTERED=(  )
+
+INUDP=( 56298 )
 
 # Output TCP
 # 22 (ssh), 22922 (ssh), 80 (http)
 # 443 (https), 465 (smtps), 993 (imaps) 
-OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 6797 )    #Output TCP
+OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 6797 6544 )    #Output TCP
 
 # Output UDP
-OUTUDP=( 53 )                 #Output UDP
+OUTUDP=( 53 1337 80 443 6544 )                 #Output UDP
 
 ###############
 ### Flush rules
@@ -43,10 +47,10 @@ iptables -F -t nat
 
 ############################
 ### Default policies -> DROP
-echo "Default policies -> drop"
+echo "Default policies -> accept"
 for p in INPUT FORWARD OUTPUT
 do
-    iptables -P $p DROP
+    iptables -P $p ACCEPT
 done
 
 #######################
@@ -73,31 +77,40 @@ iptables -A INPUT -p tcp --sport 53 -j ACCEPT
 ### filtered by HOSTS
 for h in ${HOSTS[@]};
 do
-    for p in ${INTCP[@]}
+    for p in ${INTCPFILTERED[@]}
     do
         echo "Input tcp rules -> accept $p from $h"
-        iptables -A INPUT -s $h -p tcp --sport $p -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+        iptables -A INPUT -s $h -p tcp --sport $p -j ACCEPT
     done
 done
 
 #########################
 ### Accept tcp inputs
 ### NOT FILTERED by HOSTS
-for p in ${INTCPOPEN[@]}
+for p in ${INTCP[@]}
 do
     echo "Input tcp rules -> accept $p from ALL"
-    iptables -A INPUT -p tcp --sport $p -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+    iptables -A INPUT -p tcp --sport $p -j ACCEPT
 done
 
 #####################
 ### Accept udp inputs
 for h in ${HOSTS[@]};
 do
-    for p in ${INUDP[@]}
+    for p in ${INUDPFILTERED[@]}
     do
         echo "Input udp rules -> accept $p from $h"
-        iptables -A INPUT -s $h -p udp --sport $p -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+        iptables -A INPUT -s $h -p udp --sport $p -j ACCEPT
     done
+done
+
+#########################
+### Accept udp inputs
+### NOT FILTERED by HOSTS
+for p in ${INUDP[@]}
+do
+    echo "Input udp rules -> accept $p from ALL"
+    iptables -A INPUT -p udp --sport $p -j ACCEPT
 done
 
 #####################
@@ -106,7 +119,6 @@ for p in ${OUTTCP[@]};
 do
     echo "Output tcp rule -> accept $p"
     iptables -A OUTPUT -p tcp --dport $p -j ACCEPT
-    iptables -A INPUT -p tcp --sport $p -m state --state RELATED,ESTABLISHED -j ACCEPT
 done
 
 #####################
@@ -115,10 +127,17 @@ for p in ${OUTUDP[@]};
 do
     echo "Output udp rule -> accept $p"
     iptables -A OUTPUT -p udp --dport $p -j ACCEPT
-    iptables -A INPUT -p udp --sport $p -m state --state RELATED,ESTABLISHED -j ACCEPT
 done
 
-#iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+############################
+### LAST RULE -> DROP
+echo "LAST RULE -> DROP"
+for p in INPUT FORWARD OUTPUT
+do
+    iptables -A $p -j DROP
+done
 
 ###################
 ### Print new rules
