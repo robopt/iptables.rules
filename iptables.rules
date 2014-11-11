@@ -80,7 +80,7 @@ do
     for p in ${INTCPFILTERED[@]}
     do
         echo "Input tcp rules -> accept $p from $h"
-        iptables -A INPUT -s $h -p tcp --sport $p -j ACCEPT
+        iptables -A INPUT -s $h -p tcp --dport $p -j ACCEPT
     done
 done
 
@@ -90,7 +90,7 @@ done
 for p in ${INTCP[@]}
 do
     echo "Input tcp rules -> accept $p from ALL"
-    iptables -A INPUT -p tcp --sport $p -j ACCEPT
+    iptables -A INPUT -p tcp --dport $p -j ACCEPT
 done
 
 #####################
@@ -100,7 +100,7 @@ do
     for p in ${INUDPFILTERED[@]}
     do
         echo "Input udp rules -> accept $p from $h"
-        iptables -A INPUT -s $h -p udp --sport $p -j ACCEPT
+        iptables -A INPUT -s $h -p udp --dport $p -j ACCEPT
     done
 done
 
@@ -110,7 +110,7 @@ done
 for p in ${INUDP[@]}
 do
     echo "Input udp rules -> accept $p from ALL"
-    iptables -A INPUT -p udp --sport $p -j ACCEPT
+    iptables -A INPUT -p udp --dport $p -j ACCEPT
 done
 
 #####################
