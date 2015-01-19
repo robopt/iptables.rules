@@ -10,71 +10,99 @@
 # Description: Iptables rules
 ### END INIT INFO
 
-#########
-### Hosts
-HOSTS=( 129.21.0.0/16 74.70.0.0/16 162.244.0.0/16 162.248.0.0/16 168.235.0.0/16 )
+#############
+### Hosts ###
+#############
+HOSTS=()
+HOSTS+=( 129.21.0.0/16 )
+HOSTS+=( 74.70.0.0/16 )
+HOSTS+=( 162.244.0.0/16 )
+HOSTS+=( 162.248.0.0/16 )
+HOSTS+=( 168.235.0.0/16 )
 
-#########
-### Rate Limit Input
-
-#########
-### Ports
+######################
+### Port Variables ###
+######################
 # Input TCP - FILTERED BY HOSTS
-# 22922 (ssh)
-INTCPFILTERED=( 22922 )
+INTCPFILTERED=()
+#INTCPFILTERED+=(22922) #ssh in
+
 
 # Input TCP - NOT FILTERED BY HOSTS
-INTCP=( 56298 )
+INTCP=()
+#INTCP+=()
 
 # Input UDP - FILTERED BY HOSTS
-INUDPFILTERED=(  )
+INUDPFILTERED=()
+#INUDPFILTERED+=()
 
-INUDP=( 56298 )
+# Input UDP - NOT FILTERED BY HOSTS
+INUDP=()
+#INUDP+=()
+#INUDP+=( 53 ) #dns
 
 # Output TCP
-# 22 (ssh), 22922 (ssh), 80 (http)
-# 443 (https), 465 (smtps), 993 (imaps) 
-OUTTCP=( 22 22922 80 443 465 993 8443 53 5000 6797 6544 )    #Output TCP
+OUTTCP=()
+OUTTCP+=( 22 ) #ssh
+OUTTCP+=( 53 ) #dns
+OUTTCP+=( 80 ) #http
+OUTTCP+=( 443 ) #https
+OUTTCP+=( 465 ) #smtps
+OUTTCP+=( 993 ) #imaps
+#OUTTCP+=( 5000 )
+OUTTCP+=( 6797 ) #irc
+OUTTCP+=( 22922 ) #custom ssh
+OUTTCP+=( 57178 )
 
 # Output UDP
-OUTUDP=( 53 1337 80 443 6544 )                 #Output UDP
+OUTUDP=()
+OUTUDP+=( 53 ) #dns
+OUTUDP+=( 80 ) #http
+OUTUDP+=( 443 ) #https
 
-###############
-### Flush rules
+###################
+### Flush rules ###
+###################
 echo "Flushing rules"
 iptables -F
 iptables -F -t nat
 
-############################
-### Default policies -> DROP
-echo "Default policies -> accept"
+#############################################################
+### Default policies -> ACCEPT **last rule will be drop** ###
+### Protects against iptables -F fails.                   ###
+#############################################################
+echo "Default policies -> ACCEPT - last rule will be drop."
 for p in INPUT FORWARD OUTPUT
 do
     iptables -P $p ACCEPT
 done
 
-#######################
-### Accept all loopback
+###########################
+### Accept all loopback ###
+###########################
 echo "Loopback rules -> accept"
 iptables -A INPUT -i lo -m comment --comment "Loopback" -j ACCEPT
 iptables -A OUTPUT -o lo -m comment --comment "Loopback" -j ACCEPT
 
-########################################
-### Allow ping out, block all other icmp
+############################################
+### Allow ping out, block all other icmp ###
+############################################
 echo "Icmp rules -> accept outbound, deny all else"
 iptables -A OUTPUT -p icmp --icmp-type 8 -m comment --comment "Allow ping requests output" -j ACCEPT
 iptables -A INPUT -p icmp --icmp-type 0 -m comment --comment "Allow ping reply input" -j ACCEPT
 iptables -A OUTPUT -p icmp -m comment --comment "Drop other ICMP output" -j DROP
 iptables -A INPUT -p icmp -m comment --comment "Drop other ICMP input" -j DROP
 
-####################
-### Accept DNS
+##################
+### Accept DNS ###
+##################
 iptables -A INPUT -p udp --sport 53 -j ACCEPT
 iptables -A INPUT -p tcp --sport 53 -j ACCEPT
 
-#####################
-### Accept tcp inputs
-### filtered by HOSTS
+#########################
+### Accept tcp inputs ###
+### filtered by HOSTS ###
+#########################
 for h in ${HOSTS[@]};
 do
     for p in ${INTCPFILTERED[@]}
@@ -84,17 +112,19 @@ do
     done
 done
 
-#########################
-### Accept tcp inputs
-### NOT FILTERED by HOSTS
+#############################
+### Accept tcp inputs     ###
+### NOT FILTERED by HOSTS ###
+#############################
 for p in ${INTCP[@]}
 do
     echo "Input tcp rules -> accept $p from ALL"
     iptables -A INPUT -p tcp --dport $p -j ACCEPT
 done
 
-#####################
-### Accept udp inputs
+#########################
+### Accept udp inputs ###
+#########################
 for h in ${HOSTS[@]};
 do
     for p in ${INUDPFILTERED[@]}
@@ -104,25 +134,28 @@ do
     done
 done
 
-#########################
-### Accept udp inputs
-### NOT FILTERED by HOSTS
+#############################
+### Accept udp inputs     ###
+### NOT FILTERED by HOSTS ###
+#############################
 for p in ${INUDP[@]}
 do
     echo "Input udp rules -> accept $p from ALL"
     iptables -A INPUT -p udp --dport $p -j ACCEPT
 done
 
-#####################
-### Accept tcp output
+#########################
+### Accept tcp output ###
+#########################
 for p in ${OUTTCP[@]};
 do
     echo "Output tcp rule -> accept $p"
     iptables -A OUTPUT -p tcp --dport $p -j ACCEPT
 done
 
-#####################
-### Accept udp output
+#########################
+### Accept udp output ###
+#########################
 for p in ${OUTUDP[@]};
 do
     echo "Output udp rule -> accept $p"
@@ -131,14 +164,20 @@ done
 
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-############################
-### LAST RULE -> DROP
+#########################
+### LAST RULE -> DROP ###
+#########################
 echo "LAST RULE -> DROP"
 for p in INPUT FORWARD OUTPUT
 do
     iptables -A $p -j DROP
 done
 
-###################
-### Print new rules
+#######################
+### Print new rules ###
+#######################
 iptables -nL
+
+
+echo "Don't forget to save the rules!"
+echo "\"iptables-save\""
